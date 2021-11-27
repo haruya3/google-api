@@ -9,19 +9,20 @@ class Oauthorize
   CLIENT_SECRETS_PATH = 'client_secret.json'
   CREDENTIALS_PATH = File.join(Dir.home, '.credentials', "tokens.yaml")
   SCOPE = [ "https://www.googleapis.com/auth/youtube" ]
+  flag = true
 
 
   def self.authorize
     FileUtils.mkdir_p(File.dirname(CREDENTIALS_PATH))
     #FileUtilsクラスのメソッドによって、二階層以上のディレクトリを一気につくっている。今回でいうと、Dir.home/.credentials
     client_id = Google::Auth::ClientId.from_file(CLIENT_SECRETS_PATH)
-    #p client_id idとsecretが格納されていた。
+    #p client_id client.idとclient.secretとしてが格納されていた。
     token_store = Google::Auth::Stores::FileTokenStore.new(file: CREDENTIALS_PATH)
     authorizer = Google::Auth::UserAuthorizer.new(client_id, SCOPE, token_store)
     user_id = 'default'
     credentials = authorizer.get_credentials(user_id)
     p credentials
-    unless credentials #初回だけ必要な処理。credentialを取得したら、2回目はCREDENTIALS_PATHに作られたtokens.yamlから参照する。
+    unless credentials  #初回だけ必要な処理。credentialを取得したら、2回目はCREDENTIALS_PATHに作られたtokens.yamlから参照する。
       #となると、トークンの有効期限を見て、更新の処理が必要になってくる。
       #credentailの中にrefresh_tokenもあるので、oauth/tokenへrefresh_tokenなどと一緒にリクエストすると更新できるはず。
       url = authorizer.get_authorization_url(base_url: OOB_URI)

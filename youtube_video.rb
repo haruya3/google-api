@@ -1,16 +1,17 @@
 class Youtube_video < Oauthorize
 
-    attr_accessor :youtube #attr_accessorをしないと、initializeの中だけの変数になってしまう。(変数のスコープ意識する)
+    attr_accessor :youtube, :video_ids #attr_accessorをしないと、initializeの中だけの変数になってしまう。(変数のスコープ意識する)
     
     def initialize
         @youtube = Google::Apis::YoutubeV3::YouTubeService.new
         @youtube.authorization = Oauthorize.authorize
     end
 
-    def video_serch(keyword: "人気" , after: Time.now , before: Time.now)
+    def video_serch(keyword: "人気" , video_duration: 'any', after: Time.now , before: Time.now)
         option = {
             q: keyword,
             type: 'video',
+            video_duration: video_duration,
             max_results: 5,
             order: :rating, #評価順
             published_after: after.iso8601, #iso8601という形式にしている。
@@ -30,7 +31,18 @@ class Youtube_video < Oauthorize
             video_ids << item[:id][:videoId]
         end
         result_hash = video_content(video_ids: video_ids)
+        my_channel_id
         return order(result_hash)
+    end
+
+    def my_channel_id
+        options = {
+            mine: true
+        }
+        youtube_channel_contents = @youtube.list_playlists('snippet', options)
+        result = file_operation(youtube_channel_contents)
+        #play_list_id = result[:items][0][:contentDetails][:relatedPlaylists][:watchLater]
+        #return play_list_add(play_list_id: play_list_id, video_ids: video_ids)
     end
 
     private
@@ -68,14 +80,17 @@ class Youtube_video < Oauthorize
         return result_hash
     end
 
-    def my_channel_id(youtube)
+    def play_list_add(play_list_id: "", video_ids: "")
         options = {
-            mine: true
+            playlist_id: play_list_id,
+            video_id: video_ids
         }
-        youtube_channel_contents = @youtube.list_channels('snippet, contentDetails', options)
-        result = file_operation(youtube_channel_contents)
-        favorite_playlist_id 
+        youtube_play_list_add = youtube.insert_playlist_item('snippet', options)
+        result = file_operation(youtube_play_list_add)
+        return result
+
     end
+
 
     def order(result_hash)
         #再生回数の昇順で並び替え

@@ -1,10 +1,21 @@
+require 'yt'
+
 class Youtube_video < Oauthorize
 
-    attr_accessor :youtube, :video_ids #attr_accessorをしないと、initializeの中だけの変数になってしまう。(変数のスコープ意識する)
+    attr_accessor :youtube, :youtube_yt #attr_accessorをしないと、initializeの中だけの変数になってしまう。(変数のスコープ意識する)
     
     def initialize
         @youtube = Google::Apis::YoutubeV3::YouTubeService.new
-        @youtube.authorization = Oauthorize.authorize
+        credentials = Oauthorize.authorize
+        @youtube.authorization = credentials
+        #playlistへの追加がgoogleのyoutube_v3ではできないので、非公式のYtというgemを使う。
+        #ここで、Ytの認可の仕方はgoogleauthで取得したcredentialsを利用する。
+        Yt.configure do |config|
+          config.client_id = credentials.client_id
+          config.client_secret = credentials.client_secret
+        end
+        @youtube_yt = Yt::Account.new(refresh_token: credentials.refresh_token) 
+        p @youtube_yt
     end
 
     def video_serch(keyword: "人気" , video_duration: 'any', after: Time.now , before: Time.now)
@@ -31,19 +42,11 @@ class Youtube_video < Oauthorize
             video_ids << item[:id][:videoId]
         end
         result_hash = video_content(video_ids: video_ids)
-        my_channel_id
+        my_playlist_id(video_ids)
         return order(result_hash)
     end
 
-    def my_channel_id
-        options = {
-            mine: true
-        }
-        youtube_channel_contents = @youtube.list_playlists('snippet', options)
-        result = file_operation(youtube_channel_contents)
-        #play_list_id = result[:items][0][:contentDetails][:relatedPlaylists][:watchLater]
-        #return play_list_add(play_list_id: play_list_id, video_ids: video_ids)
-    end
+    
 
     private
 
@@ -80,15 +83,22 @@ class Youtube_video < Oauthorize
         return result_hash
     end
 
-    def play_list_add(play_list_id: "", video_ids: "")
+    def my_playlist_id(video_ids)
         options = {
-            playlist_id: play_list_id,
-            video_id: video_ids
+            mine: true
         }
-        youtube_play_list_add = youtube.insert_playlist_item('snippet', options)
-        result = file_operation(youtube_play_list_add)
-        return result
+        youtube_channel_playlist = @youtube.list_playlists('snippet, contentDetails', options)
+        #youtube_channel_playlist = @youtube.list_channels('snippet, contentDetails', options) なぜか、likesとuploadの再生リストしか取得できない。よくわからん。
+        result = file_operation(youtube_channel_playlist)
+        play_list_id = result[:items][0][:id] #ここで、追加するプレイリストを変えることができる。
+        play_list_add_video(play_list_id: play_list_id, video_ids: video_ids)
+    end
 
+    def play_list_add_video(play_list_id: "", video_ids: "")
+        youtube_play_list =  Yt::Playlist.new id: play_list_id, auth: @youtube_yt
+        video_ids.each do |video_id|
+            youtube_play_list.add_video video_id #ここで、一個ずつしか追加できないのがやばい。クウォータ制限すぐ行きそう。
+        end
     end
 
 

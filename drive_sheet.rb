@@ -7,7 +7,8 @@ class DriveSheet
 
         # スプレッドシート内で下タブに表示されているシートの1番目のものを取得
         # [1]や[2]と指定することで、順にワークシートを取得することが可能
-        @sheets = @session.spreadsheet_by_key(sheet_url).worksheets[0] #spreadsheet_by_key()には、シートのurlのd/以下をコピぺする。
+        #@sheets = @session.spreadsheet_by_key(sheet_url).worksheets[0] #spreadsheet_by_key()には、シートのurlのd/以下をコピぺする。
+        @sheets = @session.spreadsheet_by_key(sheet_url) #上ではworksheet型のオブジェクトになる。spreadsheet型にしたかったらこっち
     end
     
     def hello_world
@@ -41,10 +42,10 @@ end
 
 sheet_url = gets.chomp
 drive_sheet = DriveSheet.new(sheet_url)
-drive_sheet.hello_world
+#drive_sheet.hello_world
 p drive_sheet.sheets
 #drive_sheet.show
-#drive_sheet.sheet_add("practice")なぜか、使えない。
+drive_sheet.sheet_add("practice") #add_worksheetというメソッドは、spreadsheetクラスのめそっどなのでレシーバにはspreadsheet型のオブジェクトをとる。
 #drive_sheet.drive_operation(sub_dir: "trial-dir", name: "trial")
 
 #drive_sheet.sheet_create("practice") #ちなみに、create_spreadsheetの戻り値は作成されたsheetのurl。しかも、spreadsheet_by_keyで使えるurlの部分。

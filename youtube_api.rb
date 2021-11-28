@@ -26,7 +26,7 @@ def main
     puts "詳細情報\n"      
     puts "再生数: #{item[:video_view_count]}回, グッド数: #{item[:video_like_count]}, バッド数: #{item[:video_dislike_count]}, コメント数: #{item[:video_comment_conunt]}\n"
   end
-  #youtube_video.my_channel_id
+
 
 end
 

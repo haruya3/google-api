@@ -2,3 +2,5 @@
 /client_secret.json
 /serch_result.json
 /client_id_secret.json
+/vendor
+.bundle

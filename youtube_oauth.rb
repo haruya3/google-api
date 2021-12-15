@@ -9,7 +9,6 @@ class Oauthorize
   CLIENT_SECRETS_PATH = 'client_secret.json'
   CREDENTIALS_PATH = File.join(Dir.home, '.credentials', "tokens.yaml")
   SCOPE = [ "https://www.googleapis.com/auth/youtube" ]
-  flag = true
 
 
   def self.authorize

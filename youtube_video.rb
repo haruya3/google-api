@@ -1,4 +1,5 @@
 require 'yt'
+require 'duration'
 
 class Youtube_video < Oauthorize
 
@@ -24,7 +25,7 @@ class Youtube_video < Oauthorize
 
     end
 
-    def video_serch(keyword: "人気" , video_duration: 'any', after: Time.now , before: Time.now, search_count: 5)
+    def video_serch(keyword: "人気" , video_duration: 'any', after: Time.now , before: Time.now, search_count: 5, video_view_count: 10000)
         next_page_alt_token = ""
         filtered_video_ids = []
         result_hash = {items: []}
@@ -55,7 +56,7 @@ class Youtube_video < Oauthorize
     
             break if filtered_video_ids.length >= search_count || result[:nextPageToken].nil?
 
-            return_result_hash, return_filtered_video_ids = video_content(video_ids: video_ids) 
+            return_result_hash, return_filtered_video_ids = video_content(video_ids: video_ids, video_view_count: video_view_count) 
             #検索結果のフィルターされた動画の詳細情報とidを配列に結合する。
             result_hash[:items].concat(return_result_hash[:items]) 
             filtered_video_ids.concat(return_filtered_video_ids)
@@ -75,7 +76,7 @@ class Youtube_video < Oauthorize
     private
 
     #検索結果の動画の詳細情報を取得、また再生回数のフィルターメソッドも呼び出す
-    def video_content(video_ids: [])
+    def video_content(video_ids: [], video_view_count: 10000)
         #文字列にしてあげる。list_videosのオプションは、動画のidであり複数の場合は文字列でカンマ区切りで渡すことになっているから。
         video_id_list = video_ids.join(',') 
         options = {
@@ -84,7 +85,8 @@ class Youtube_video < Oauthorize
         youtube_video_content = @youtube.list_videos("statistics, snippet, contentDetails", options)
         result = file_operation(youtube_list: youtube_video_content, file_write_flag: false)
         #取得した動画のidをフィルターにかける
-        filtered_video_ids = filter_view_count_video(search_video_result: result)
+        filtered_video_ids = filter_view_count_video(search_video_result: result, video_view_count: video_view_count)
+        p filtered_video_ids
         #これが、最終的にプレイリストに追加する
         result_hash = {items: []}
         result[:items].each do |item|
@@ -97,19 +99,20 @@ class Youtube_video < Oauthorize
             if filtered_video_ids.include?(video_id)
                 response_content = {
                     video_id: video_id,
-                    video_url: "https://www.youtube.com/watch?v=#{video_id}",
                     video_title: item[:snippet][:title],
                     video_channel_name: item[:snippet][:channelTitle],
                     video_published_at: Time.parse(video_published_at).strftime("%Y年%m月%d日 %H時%M分%S秒"), #文字列ならiso8601からTime型になおせる。さらに、見やすいフォーマットに。
+                    video_url: "https://www.youtube.com/watch?v=#{video_id}",
                     #strftimeはレシーバがTime型ならオッケー。
-                    video_time: "#{video_time.hours}時間#{video_time.minutes}分#{video_time.seconds}秒",
                     video_view_count: item[:statistics][:viewCount] || "なし",
                     video_like_count: item[:statistics][:likeCount] || "なし",
+                    video_time: "#{video_time.hours}時間#{video_time.minutes}分#{video_time.seconds}秒",
                     video_dislike_count: item[:statistics][:dislikeCount] || "なし",
                     video_comment_conunt: item[:statistics][:commentCount] || "なし"
                 }
                 result_hash[:items] << response_content
             end
+            #p result_hash
         end
         return result_hash, filtered_video_ids
     end
@@ -127,7 +130,7 @@ class Youtube_video < Oauthorize
     end
 
     #プレイリストに動画を追加
-    def play_list_add_video(play_list_id: "", filtered_video_ids: "")
+    def play_list_add_video(play_list_id: "", filtered_video_ids:  [])
         video_already_ids = play_list_item_ids(play_list_id)
         #プレイリストに既にある動画のidを確認
         #p video_already_ids
@@ -166,7 +169,7 @@ class Youtube_video < Oauthorize
             next_page_alt_token = result[:nextPageToken]
             index += 1
 
-            p "#{index}回目！" #ループが繰り返されて、何回目で抜け出すかが分かる。つまり、break if result[:nextPageToken].nil?が正常に動いているかテストできる。
+            #p "#{index}回目！" #ループが繰り返されて、何回目で抜け出すかが分かる。つまり、break if result[:nextPageToken].nil?が正常に動いているかテストできる。
         end
         return video_already_ids
     end
@@ -183,14 +186,14 @@ class Youtube_video < Oauthorize
     end
 
     #再生回数フィルター(liveフィルターつき)
-    def filter_view_count_video(search_video_result: [])
+    def filter_view_count_video(search_video_result: [], video_view_count: 10000)
         filter_video_ids = []
         search_video_result[:items].each do |item|
             #liveは含めないようにvideo_timeでフィルター
             video_time_duration = item[:contentDetails][:duration]
             video_time = Duration.new(video_time_duration)
             video_time_result = "#{video_time.hours}時間#{video_time.minutes}分#{video_time.seconds}秒"
-            filter_video_ids << item[:id] if item[:statistics][:viewCount].to_i > 10000 && video_time_result != "0時間0分0秒" 
+            filter_video_ids << item[:id] if item[:statistics][:viewCount].to_i > video_view_count && video_time_result != "0時間0分0秒" 
         end
         return filter_video_ids
     end
@@ -213,7 +216,7 @@ class Youtube_video < Oauthorize
         results = JSON.pretty_generate(youtube_list) #返値は文字列
 
         if file_write_flag
-            File.open("serch_result.json", "a") do |f|
+            File.open("serch_result.json", "w") do |f|
                 f.write(results)
                 f.write("\n")
             end
